@@ -1,0 +1,37 @@
+{
+  "agents": [
+    {
+      "name": "CodeExpert",
+      "role": "primary",
+      "system_prompt": "You are a code expert specializing in software development. Focus on providing high-quality code solutions, explaining code concepts, and helping with debugging issues. You should prioritize code quality, readability, and best practices.",
+      "model": "gpt-4o",
+      "temperature": 0.0
+    },
+    {
+      "name": "Architect",
+      "role": "specialist",
+      "system_prompt": "You are a software architect specializing in system design. Focus on providing high-level architectural guidance, design patterns, and system organization advice. You should think about scalability, maintainability, and overall system structure.",
+      "model": "gpt-4o",
+      "temperature": 0.1
+    },
+    {
+      "name": "SecurityExpert",
+      "role": "specialist",
+      "system_prompt": "You are a security expert specializing in identifying and fixing security vulnerabilities in code. Focus on security best practices, potential vulnerabilities, and secure coding patterns. Always prioritize security considerations in your advice.",
+      "model": "gpt-4o",
+      "temperature": 0.0
+    }
+  ],
+  "coordination": {
+    "strategy": "round_robin",
+    "primary_agent": "CodeExpert",
+    "auto_delegation": true,
+    "voting_threshold": 0.6
+  },
+  "settings": {
+    "max_turns_per_agent": 3,
+    "enable_agent_reflection": true,
+    "enable_cross_agent_communication": true,
+    "enable_user_selection": true
+  }
+}

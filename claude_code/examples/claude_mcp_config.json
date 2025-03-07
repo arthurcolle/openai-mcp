@@ -1,0 +1,9 @@
+{
+  "name": "Claude Code Tools",
+  "type": "local_process",
+  "command": "python",
+  "args": ["claude.py", "serve"],
+  "workingDirectory": "/path/to/claude-code-directory",
+  "environment": {},
+  "description": "A Model Context Protocol server for Claude Code tools"
+}

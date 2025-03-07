@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAI Code Assistant MCP Server</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>OpenAI Code Assistant MCP Server</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Status</div>
+                <div class="stat-value" style="color: #27ae60;">{{ status }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Uptime</div>
+                <div class="stat-value">{{ uptime }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Requests Served</div>
+                <div class="stat-value">{{ request_count }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Cache Hit Ratio</div>
+                <div class="stat-value">{{ cache_hit_ratio }}%</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">System Status</div>
+            <div class="card-body">
+                <canvas id="requestsChart" height="100"></canvas>
+            </div>
+        </div>
+        
+        <h2>Available Models</h2>
+        <div class="card">
+            <div class="card-body">
+                <div class="template-grid">
+                    {% for model in models %}
+                    <div class="stat-card">
+                        <div class="stat-label">Model</div>
+                        <div class="stat-value" style="font-size: 20px;">{{ model }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <h2>Available Prompt Templates</h2>
+        <div class="template-grid">
+            {% for template in templates %}
+            <div class="card">
+                <div class="card-header">{{ template.id }}</div>
+                <div class="card-body">
+                    <p><strong>Description:</strong> {{ template.description }}</p>
+                    
+                    {% if template.parameters %}
+                    <p><strong>Parameters:</strong></p>
+                    <ul class="parameter-list">
+                        {% for param in template.parameters %}
+                        <li>{{ param }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p><em>No parameters required</em></p>
+                    {% endif %}
+                    
+                    <p><strong>Default Model:</strong> <span class="tag">{{ template.default_model }}</span></p>
+                    
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="testTemplate('{{ template.id }}')">Test Template</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <h2>API Documentation</h2>
+        <div class="card">
+            <div class="card-body">
+                <p>Explore the API using the interactive documentation:</p>
+                <a href="/docs" class="btn btn-primary">Swagger UI</a>
+                <a href="/redoc" class="btn btn-secondary">ReDoc</a>
+                <a href="/metrics" class="btn btn-info">Prometheus Metrics</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>OpenAI Code Assistant MCP Server &copy; 2025</p>
+        </div>
+    </div>
+    
+    <!-- Template Test Modal -->
+    <div id="templateModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="background-color: white; margin: 10% auto; padding: 20px; width: 80%; max-width: 600px; border-radius: 8px;">
+            <h3 id="modalTitle">Test Template</h3>
+            <div id="modalContent">
+                <div id="parameterInputs"></div>
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="submitTemplateTest()">Generate Context</button>
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
+            </div>
+            <div id="resultContent" style="display: none; margin-top: 20px;">
+                <h4>Generated Context:</h4>
+                <pre id="contextResult" style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;"></pre>
+                <button class="btn btn-secondary" onclick="closeResults()">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Sample data for the chart - in a real implementation, this would come from the server
+        const ctx = document.getElementById('requestsChart').getContext('2d');
+        const requestsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 12}, (_, i) => `${i*5} min ago`).reverse(),
+                datasets: [{
+                    label: 'Requests',
+                    data: [12, 19, 3, 5, 2, 3, 20, 33, 23, 12, 5, 3],
+                    borderColor: '#3498db',
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // Template testing functionality
+        let currentTemplate = '';
+        
+        function testTemplate(templateId) {
+            currentTemplate = templateId;
+            document.getElementById('modalTitle').textContent = `Test Template: ${templateId}`;
+            document.getElementById('parameterInputs').innerHTML = '';
+            document.getElementById('resultContent').style.display = 'none';
+            
+            // Fetch template details
+            fetch(`/prompts/${templateId}`)
+                .then(response => response.json())
+                .then(template => {
+                    const parametersDiv = document.getElementById('parameterInputs');
+                    
+                    // Create input fields for each parameter
+                    for (const [paramName, paramInfo] of Object.entries(template.parameters)) {
+                        const paramDiv = document.createElement('div');
+                        paramDiv.style.marginBottom = '15px';
+                        
+                        const label = document.createElement('label');
+                        label.textContent = `${paramName}: ${paramInfo.description || ''}`;
+                        label.style.display = 'block';
+                        label.style.marginBottom = '5px';
+                        
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.id = `param-${paramName}`;
+                        input.style.width = '100%';
+                        input.style.padding = '8px';
+                        input.style.borderRadius = '4px';
+                        input.style.border = '1px solid #ddd';
+                        
+                        paramDiv.appendChild(label);
+                        paramDiv.appendChild(input);
+                        parametersDiv.appendChild(paramDiv);
+                    }
+                    
+                    // Show the modal
+                    document.getElementById('templateModal').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error fetching template:', error);
+                    alert('Error fetching template details');
+                });
+        }
+        
+        function submitTemplateTest() {
+            // Collect parameter values
+            const parameters = {};
+            const inputs = document.querySelectorAll('[id^="param-"]');
+            
+            inputs.forEach(input => {
+                const paramName = input.id.replace('param-', '');
+                parameters[paramName] = input.value;
+            });
+            
+            // Call the context API
+            fetch('/context', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt_id: currentTemplate,
+                    parameters: parameters
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Display the result
+                document.getElementById('contextResult').textContent = data.context;
+                document.getElementById('modalContent').style.display = 'none';
+                document.getElementById('resultContent').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error generating context:', error);
+                alert('Error generating context');
+            });
+        }
+        
+        function closeModal() {
+            document.getElementById('templateModal').style.display = 'none';
+        }
+        
+        function closeResults() {
+            document.getElementById('resultContent').style.display = 'none';
+            document.getElementById('modalContent').style.display = 'block';
+            closeModal();
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('templateModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

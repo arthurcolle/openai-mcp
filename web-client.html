@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAI Code Assistant Web Client</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .chat-container {
+            display: flex;
+            height: 70vh;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-right: 20px;
+        }
+        
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: #fff;
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #ddd;
+        }
+        
+        .chat-input textarea {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: none;
+            font-family: inherit;
+        }
+        
+        .chat-input button {
+            margin-left: 10px;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .chat-input button:hover {
+            background-color: #45a049;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .user-message {
+            background-color: #e3f2fd;
+            align-self: flex-end;
+            margin-left: 20%;
+        }
+        
+        .assistant-message {
+            background-color: #f1f1f1;
+            align-self: flex-start;
+            margin-right: 20%;
+        }
+        
+        .tool-message {
+            background-color: #fff8e1;
+            border-left: 3px solid #ffc107;
+            padding-left: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .status-message {
+            color: #666;
+            font-style: italic;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .warning-message {
+            color: #ff9800;
+            border-left: 3px solid #ff9800;
+            padding-left: 10px;
+        }
+        
+        .error-message {
+            color: #f44336;
+            border-left: 3px solid #f44336;
+            padding-left: 10px;
+        }
+        
+        .conversation-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .conversation-list li {
+            padding: 8px 10px;
+            margin-bottom: 5px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .conversation-list li:hover {
+            background-color: #dee2e6;
+        }
+        
+        .conversation-list li.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .settings-panel {
+            margin-top: 20px;
+        }
+        
+        .settings-panel h3 {
+            margin-bottom: 10px;
+        }
+        
+        .settings-panel label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .settings-panel select, .settings-panel input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .new-conversation-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        
+        .new-conversation-btn:hover {
+            background-color: #45a049;
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        code {
+            font-family: 'Courier New', Courier, monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>OpenAI Code Assistant</h1>
+    
+    <div class="chat-container">
+        <div class="sidebar">
+            <button id="newConversationBtn" class="new-conversation-btn">New Conversation</button>
+            
+            <h3>Conversations</h3>
+            <ul id="conversationList" class="conversation-list">
+                <!-- Conversations will be added here -->
+            </ul>
+            
+            <div class="settings-panel">
+                <h3>Settings</h3>
+                <label for="modelSelect">Model:</label>
+                <select id="modelSelect">
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                </select>
+                
+                <label for="temperatureInput">Temperature:</label>
+                <input type="number" id="temperatureInput" min="0" max="2" step="0.1" value="0">
+            </div>
+        </div>
+        
+        <div class="main-chat">
+            <div id="chatMessages" class="chat-messages">
+                <div class="status-message">Start a new conversation or select an existing one.</div>
+            </div>
+            
+            <div class="chat-input">
+                <textarea id="userInput" placeholder="Type your message here..." rows="3"></textarea>
+                <button id="sendButton">Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // API endpoint (change this to match your server)
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        // State
+        let currentConversationId = null;
+        let conversations = [];
+        
+        // DOM Elements
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const newConversationBtn = document.getElementById('newConversationBtn');
+        const conversationList = document.getElementById('conversationList');
+        const modelSelect = document.getElementById('modelSelect');
+        const temperatureInput = document.getElementById('temperatureInput');
+        
+        // Event Listeners
+        sendButton.addEventListener('click', sendMessage);
+        newConversationBtn.addEventListener('click', createNewConversation);
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        // Initialize
+        function init() {
+            // Load conversations from local storage
+            const savedConversations = localStorage.getItem('conversations');
+            if (savedConversations) {
+                conversations = JSON.parse(savedConversations);
+                updateConversationList();
+            }
+        }
+        
+        // Create a new conversation
+        async function createNewConversation() {
+            try {
+                const model = modelSelect.value;
+                const temperature = parseFloat(temperatureInput.value);
+                
+                const response = await fetch(`${API_BASE_URL}/conversation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ model, temperature })
+                });
+                
+                const data = await response.json();
+                
+                if (data.conversation_id) {
+                    const newConversation = {
+                        id: data.conversation_id,
+                        model: data.model,
+                        created: new Date().toISOString(),
+                        messages: []
+                    };
+                    
+                    conversations.push(newConversation);
+                    saveConversations();
+                    updateConversationList();
+                    
+                    // Switch to the new conversation
+                    switchConversation(data.conversation_id);
+                }
+            } catch (error) {
+                console.error('Error creating conversation:', error);
+                addErrorMessage('Failed to create a new conversation. Please try again.');
+            }
+        }
+        
+        // Switch to a different conversation
+        function switchConversation(conversationId) {
+            currentConversationId = conversationId;
+            
+            // Update UI
+            const conversationItems = conversationList.querySelectorAll('li');
+            conversationItems.forEach(item => {
+                if (item.dataset.id === conversationId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+            
+            // Clear and load messages
+            chatMessages.innerHTML = '';
+            
+            const conversation = conversations.find(c => c.id === conversationId);
+            if (conversation && conversation.messages) {
+                conversation.messages.forEach(msg => {
+                    if (msg.role === 'user') {
+                        addUserMessage(msg.content);
+                    } else if (msg.role === 'assistant') {
+                        addAssistantMessage(msg.content);
+                    } else if (msg.role === 'tool') {
+                        addToolMessage(msg.name, msg.content);
+                    }
+                });
+            }
+            
+            // Focus input
+            userInput.focus();
+        }
+        
+        // Send a message
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+            
+            if (!currentConversationId) {
+                await createNewConversation();
+            }
+            
+            // Add user message to UI
+            addUserMessage(message);
+            
+            // Save message to conversation
+            const conversation = conversations.find(c => c.id === currentConversationId);
+            if (conversation) {
+                conversation.messages.push({
+                    role: 'user',
+                    content: message
+                });
+                saveConversations();
+            }
+            
+            // Clear input
+            userInput.value = '';
+            
+            // Send to API and stream response
+            try {
+                const response = await fetch(`${API_BASE_URL}/conversation/${currentConversationId}/message/stream`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                let assistantResponse = '';
+                let responseElement = null;
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const text = decoder.decode(value);
+                    const lines = text.split('\n').filter(line => line.trim());
+                    
+                    for (const line of lines) {
+                        try {
+                            const data = JSON.parse(line);
+                            
+                            if (data.type === 'content') {
+                                if (!responseElement) {
+                                    responseElement = addAssistantMessage('');
+                                }
+                                
+                                assistantResponse += data.content;
+                                responseElement.textContent = assistantResponse;
+                            } 
+                            else if (data.type === 'status') {
+                                if (data.status === 'running_tools') {
+                                    addStatusMessage('Running tools...');
+                                } else if (data.status.startsWith('running_tools_iteration_')) {
+                                    const iteration = data.status.split('_').pop();
+                                    addStatusMessage(`Running tools (iteration ${iteration})...`);
+                                }
+                            } 
+                            else if (data.type === 'tool_result') {
+                                addToolMessage(data.tool, data.result);
+                            } 
+                            else if (data.type === 'warning') {
+                                addWarningMessage(data.warning);
+                            } 
+                            else if (data.type === 'error') {
+                                addErrorMessage(data.error);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing stream data:', e, line);
+                        }
+                    }
+                }
+                
+                // Save assistant response to conversation
+                if (conversation && assistantResponse) {
+                    conversation.messages.push({
+                        role: 'assistant',
+                        content: assistantResponse
+                    });
+                    saveConversations();
+                }
+                
+            } catch (error) {
+                console.error('Error sending message:', error);
+                addErrorMessage('Failed to send message. Please try again.');
+            }
+        }
+        
+        // Add a user message to the chat
+        function addUserMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message user-message';
+            messageElement.textContent = message;
+            chatMessages.appendChild(messageElement);
+            scrollToBottom();
+            return messageElement;
+        }
+        
+        // Add an assistant message to the chat
+        function addAssistantMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message assistant-message';
+            messageElement.textContent = message;
+            chatMessages.appendChild(messageElement);
+            scrollToBottom();
+            return messageElement;
+        }
+        
+        // Add a tool message to the chat
+        function addToolMessage(toolName, result) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message tool-message';
+            messageElement.innerHTML = `<strong>${toolName}:</strong>\n${result}`;
+            chatMessages.appendChild(messageElement);
+            scrollToBottom();
+            return messageElement;
+        }
+        
+        // Add a status message to the chat
+        function addStatusMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'status-message';
+            messageElement.textContent = message;
+            chatMessages.appendChild(messageElement);
+            scrollToBottom();
+            return messageElement;
+        }
+        
+        // Add a warning message to the chat
+        function addWarningMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'warning-message';
+            messageElement.textContent = message;
+            chatMessages.appendChild(messageElement);
+            scrollToBottom();
+            return messageElement;
+        }
+        
+        // Add an error message to the chat
+        function addErrorMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'error-message';
+            messageElement.textContent = message;
+            chatMessages.appendChild(messageElement);
+            scrollToBottom();
+            return messageElement;
+        }
+        
+        // Update the conversation list in the sidebar
+        function updateConversationList() {
+            conversationList.innerHTML = '';
+            
+            conversations.forEach(conversation => {
+                const listItem = document.createElement('li');
+                listItem.textContent = new Date(conversation.created).toLocaleString();
+                listItem.dataset.id = conversation.id;
+                
+                if (conversation.id === currentConversationId) {
+                    listItem.classList.add('active');
+                }
+                
+                listItem.addEventListener('click', () => {
+                    switchConversation(conversation.id);
+                });
+                
+                conversationList.appendChild(listItem);
+            });
+        }
+        
+        // Save conversations to local storage
+        function saveConversations() {
+            localStorage.setItem('conversations', JSON.stringify(conversations));
+        }
+        
+        // Scroll chat to bottom
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>

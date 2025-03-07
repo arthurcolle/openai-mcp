@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude MCP Server Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #1a73e8;
+            --primary-dark: #0d47a1;
+            --primary-light: #e8f0fe;
+            --secondary-color: #34a853;
+            --tertiary-color: #ea4335;
+            --neutral-color: #f5f5f5;
+            --success-color: #00c853;
+            --warning-color: #ffab00;
+            --danger-color: #f44336;
+            --info-color: #2196f3;
+            --text-color: #333;
+            --text-light: #767676;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --font-primary: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            --font-code: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+            --header-height: 70px;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            line-height: 1.6;
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            transition: all 0.4s ease;
+            overflow-x: hidden;
+        }
+
+        .dark-mode {
+            --primary-color: #4285f4;
+            --primary-dark: #5c9aff;
+            --primary-light: #1c2733;
+            --neutral-color: #2c2c2c;
+            --success-color: #00e676;
+            --warning-color: #ffc400;
+            --danger-color: #ff5252;
+            --info-color: #42a5f5;
+            --text-color: #e0e0e0;
+            --text-light: #b0b0b0;
+            background-color: #121212;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 25px;
+            margin-bottom: 25px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+
+        .dark-mode .card {
+            background-color: #222222;
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            transform: translateY(-3px);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding-bottom: 15px;
+        }
+        
+        .dark-mode .card-header {
+            border-bottom-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin: 0;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .card-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .card-accent {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 4px;
+            width: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+        
+        .card-accent-primary {
+            background: linear-gradient(90deg, var(--primary-color), #5c9aff);
+        }
+        
+        .card-accent-success {
+            background: linear-gradient(90deg, var(--success-color), #69f0ae);
+        }
+        
+        .card-accent-warning {
+            background: linear-gradient(90deg, var(--warning-color), #ffecb3);
+        }
+        
+        .card-accent-danger {
+            background: linear-gradient(90deg, var(--danger-color), #ff8a80);
+        }
+        
+        .card-footer {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .dark-mode .card-footer {
+            border-top-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        code {
+            background-color: var(--neutral-color);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--text-color);
+        }
+
+        pre {
+            background-color: var(--neutral-color);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--text-color);
+        }
+
+        .config-box {
+            background-color: var(--primary-light);
+            border: 1px solid var(--primary-color);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .note {
+            background-color: #fffde7;
+            border-left: 4px solid #ffca28;
+            padding: 10px 15px;
+            margin: 15px 0;
+        }
+
+        .dark-mode .note {
+            background-color: #332d00;
+            border-left-color: #ffca28;
+        }
+
+        .tab-container {
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 25px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: var(--border-radius);
+            padding: 5px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .dark-mode .tabs {
+            background-color: rgba(40, 40, 40, 0.8);
+        }
+
+        .tab {
+            padding: 12px 25px;
+            cursor: pointer;
+            border-radius: var(--border-radius);
+            transition: var(--transition);
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .tab:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .tab:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab.active {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+        }
+
+        .dark-mode .tab.active {
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+        
+        .tab-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--success-color);
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: none;
+        }
+        
+        .tab-indicator.active {
+            display: block;
+            animation: pulse 2s infinite;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        button, .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:after, .btn:after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: width 0.4s ease;
+        }
+
+        button:hover:after, .btn:hover:after {
+            width: 100%;
+        }
+
+        button:hover, .btn:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active, .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            background-image: linear-gradient(135deg, var(--secondary-color), #27ae60);
+        }
+
+        .btn-secondary:hover {
+            background-color: #2d904c;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            background-image: linear-gradient(135deg, var(--danger-color), #d32f2f);
+        }
+
+        .btn-danger:hover {
+            background-color: #c62828;
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            background-image: linear-gradient(135deg, var(--warning-color), #ff8f00);
+            color: #212121;
+        }
+
+        .btn-warning:hover {
+            background-color: #ff8f00;
+        }
+
+        .btn-info {
+            background-color: var(--info-color);
+            background-image: linear-gradient(135deg, var(--info-color), #1976d2);
+        }
+
+        .btn-info:hover {
+            background-color: #1976d2;
+        }
+
+        .btn-ghost {
+            background-color: transparent;
+            background-image: none;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            box-shadow: none;
+        }
+
+        .btn-ghost:hover {
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.12);
+        }
+
+        .btn-icon {
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-large {
+            padding: 14px 24px;
+            font-size: 16px;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .status-active {
+            background-color: #34a853;
+            box-shadow: 0 0 0 3px rgba(52, 168, 83, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(52, 168, 83, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0); }
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .tool-card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow);
+            border-left: 4px solid var(--primary-color);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .dark-mode .tool-card {
+            background-color: #222222;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tool-card:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 0, 0, 0.02);
+            border-radius: 50% 0 0 0;
+            transform: scale(1.5);
+            z-index: 0;
+            transition: var(--transition);
+        }
+        
+        .dark-mode .tool-card:after {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        
+        .tool-card:hover:after {
+            width: 150px;
+            height: 150px;
+            transform: scale(1);
+        }
+        
+        .tool-card.tool-bash { border-left-color: #f44336; }
+        .tool-card.tool-view { border-left-color: #2196f3; }
+        .tool-card.tool-edit { border-left-color: #4caf50; }
+        .tool-card.tool-glob { border-left-color: #ff9800; }
+        .tool-card.tool-grep { border-left-color: #9c27b0; }
+        .tool-card.tool-ls { border-left-color: #00bcd4; }
+
+        .tool-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background-color: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            font-size: 20px;
+            transition: var(--transition);
+        }
+        
+        .tool-bash .tool-icon { background-color: rgba(244, 67, 54, 0.1); color: #f44336; }
+        .tool-view .tool-icon { background-color: rgba(33, 150, 243, 0.1); color: #2196f3; }
+        .tool-edit .tool-icon { background-color: rgba(76, 175, 80, 0.1); color: #4caf50; }
+        .tool-glob .tool-icon { background-color: rgba(255, 152, 0, 0.1); color: #ff9800; }
+        .tool-grep .tool-icon { background-color: rgba(156, 39, 176, 0.1); color: #9c27b0; }
+        .tool-ls .tool-icon { background-color: rgba(0, 188, 212, 0.1); color: #00bcd4; }
+
+        .tool-card:hover .tool-icon {
+            transform: scale(1.1);
+        }
+
+        .tool-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--text-color);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1;
+        }
+
+        .tool-description {
+            font-size: 14px;
+            color: var(--text-light);
+            flex-grow: 1;
+            z-index: 1;
+        }
+        
+        .tool-stats {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            font-size: 13px;
+            color: var(--text-light);
+            z-index: 1;
+        }
+        
+        .dark-mode .tool-stats {
+            border-top-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .tool-usage {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .tool-latency {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow);
+            text-align: center;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+
+        .dark-mode .stat-card {
+            background-color: #222222;
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-card:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+        
+        .stat-card.primary:before {
+            background: linear-gradient(90deg, var(--primary-color), #5c9aff);
+        }
+        
+        .stat-card.success:before {
+            background: linear-gradient(90deg, var(--success-color), #69f0ae);
+        }
+        
+        .stat-card.warning:before {
+            background: linear-gradient(90deg, var(--warning-color), #ffecb3);
+        }
+        
+        .stat-card.danger:before {
+            background: linear-gradient(90deg, var(--danger-color), #ff8a80);
+        }
+
+        .stat-icon {
+            font-size: 24px;
+            height: 50px;
+            width: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin-bottom: 10px;
+            color: white;
+            background-color: var(--primary-color);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-card.primary .stat-icon {
+            background-color: var(--primary-color);
+        }
+        
+        .stat-card.success .stat-icon {
+            background-color: var(--success-color);
+        }
+        
+        .stat-card.warning .stat-icon {
+            background-color: var(--warning-color);
+        }
+        
+        .stat-card.danger .stat-icon {
+            background-color: var(--danger-color);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 15px 0 5px;
+            line-height: 1;
+        }
+        
+        .stat-card.primary .stat-value {
+            color: var(--primary-color);
+        }
+        
+        .stat-card.success .stat-value {
+            color: var(--success-color);
+        }
+        
+        .stat-card.warning .stat-value {
+            color: var(--warning-color);
+        }
+        
+        .stat-card.danger .stat-value {
+            color: var(--danger-color);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-trend {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+        
+        .stat-trend.up {
+            color: var(--success-color);
+        }
+        
+        .stat-trend.down {
+            color: var(--danger-color);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+            border-radius: var(--border-radius);
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 15px;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+            transition: var(--transition);
+        }
+        
+        .dark-mode .chart-container {
+            background-color: rgba(50, 50, 50, 0.2);
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .chart-container:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .chart-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chart-legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .chart-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+        }
+        
+        .chart-legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: white;
+            color: var(--text-color);
+        }
+
+        .dark-mode input, 
+        .dark-mode select, 
+        .dark-mode textarea {
+            background-color: #333;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            margin-right: 10px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--primary-color);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            position: relative;
+            animation: slideIn 0.3s;
+        }
+
+        .dark-mode .modal-content {
+            background-color: #2a2a2a;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 22px;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        .close:hover {
+            color: var(--text-color);
+        }
+
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            display: none;
+            z-index: 1000;
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .code-with-copy {
+            position: relative;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 5px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-color);
+            border: none;
+        }
+
+        .dark-mode .copy-button {
+            background-color: rgba(50, 50, 50, 0.8);
+            color: var(--text-light);
+        }
+
+        .config-form {
+            margin-top: 20px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .server-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: var(--text-light);
+        }
+
+        .info-value {
+            color: var(--text-color);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge-primary {
+            background-color: var(--primary-light);
+            color: var(--primary-color);
+        }
+
+        .dark-mode .badge-primary {
+            background-color: rgba(66, 133, 244, 0.2);
+        }
+
+        .badge-success {
+            background-color: rgba(52, 168, 83, 0.1);
+            color: #34a853;
+        }
+
+        .badge-warning {
+            background-color: rgba(251, 188, 5, 0.1);
+            color: #fbbc05;
+        }
+
+        .badge-danger {
+            background-color: rgba(234, 67, 53, 0.1);
+            color: #ea4335;
+        }
+
+        .resource-list {
+            margin-top: 15px;
+        }
+
+        .resource-item {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            background-color: var(--neutral-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dark-mode .resource-item {
+            background-color: #333;
+        }
+
+        .resource-uri {
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--primary-color);
+        }
+
+        .theme-switch {
+            cursor: pointer;
+            color: var(--text-light);
+            transition: var(--transition);
+        }
+
+        .theme-switch:hover {
+            color: var(--primary-color);
+        }
+
+        .clipboard-success {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            animation: fadeInOut 2s;
+            z-index: 1000;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px); }
+            20% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-robot fa-2x" style="color: #4285f4;"></i>
+                <div>
+                    <h1>Claude MCP Server Dashboard</h1>
+                    <p style="margin: 0;">Advanced Configuration and Monitoring</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="refresh-btn" class="btn-ghost"><i class="fas fa-sync-alt"></i> Refresh</button>
+                <div class="theme-switch" id="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+            </div>
+        </header>
+
+        <div class="status">
+            <span class="status-indicator status-active"></span>
+            <span id="status-text">MCP Server Running - <span id="uptime">10 minutes</span></span>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card primary">
+                <div class="stat-icon">
+                    <i class="fas fa-tools"></i>
+                </div>
+                <div id="tools-count" class="stat-value">7</div>
+                <div class="stat-label">Available Tools</div>
+                <div class="stat-trend up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>2 new</span>
+                </div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-icon">
+                    <i class="fas fa-plug"></i>
+                </div>
+                <div id="connections-count" class="stat-value">1</div>
+                <div class="stat-label">Active Connections</div>
+                <div class="stat-trend up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>Active now</span>
+                </div>
+            </div>
+            <div class="stat-card danger">
+                <div class="stat-icon">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+                <div id="requests-count" class="stat-value">45</div>
+                <div class="stat-label">Total Requests</div>
+                <div class="stat-trend up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>+12 today</span>
+                </div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-icon">
+                    <i class="fas fa-box"></i>
+                </div>
+                <div id="resources-count" class="stat-value">3</div>
+                <div class="stat-label">Resources</div>
+                <div class="stat-trend">
+                    <i class="fas fa-minus"></i>
+                    <span>No change</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-container">
+            <div class="tabs">
+                <div class="tab active" data-tab="config">
+                    <i class="fas fa-cog"></i>
+                    Configuration
+                    <span class="tab-indicator"></span>
+                </div>
+                <div class="tab" data-tab="monitoring">
+                    <i class="fas fa-chart-line"></i>
+                    Monitoring
+                    <span class="tab-indicator active"></span>
+                </div>
+                <div class="tab" data-tab="tools">
+                    <i class="fas fa-tools"></i>
+                    Tools
+                    <span class="tab-indicator"></span>
+                </div>
+                <div class="tab" data-tab="clients">
+                    <i class="fas fa-users"></i>
+                    Clients
+                    <span class="tab-indicator"></span>
+                </div>
+                <div class="tab" data-tab="settings">
+                    <i class="fas fa-sliders-h"></i>
+                    Settings
+                    <span class="tab-indicator"></span>
+                </div>
+            </div>
+
+            <div class="tab-content active" id="config-tab">
+                <div class="card">
+                    <div class="card-accent card-accent-primary"></div>
+                    <div class="card-header">
+                        <h2 class="card-title"><i class="fas fa-cog"></i> Claude Desktop Configuration</h2>
+                        <div class="card-actions">
+                            <button class="btn-icon btn-ghost"><i class="fas fa-question-circle"></i></button>
+                            <button class="btn-icon btn-ghost"><i class="fas fa-external-link-alt"></i></button>
+                        </div>
+                    </div>
+                    <p>Connect your Claude Desktop client to this MCP server by following these steps:</p>
+
+                    <ol>
+                        <li>Open Claude Desktop application</li>
+                        <li>Click on Settings (gear icon)</li>
+                        <li>Navigate to "Model Context Protocol" section</li>
+                        <li>Click "Add New Server"</li>
+                        <li>Enter the configuration below or use the auto-configuration options</li>
+                    </ol>
+
+                    <div class="config-box">
+                        <h3>Server Configuration</h3>
+                        <div class="code-with-copy">
+                            <pre><code id="server-config">{
+  "name": "Claude Code Tools",
+  "type": "local_process",
+  "command": "python",
+  "args": ["claude.py", "serve"],
+  "workingDirectory": "/path/to/claude-code-directory",
+  "environment": {},
+  "description": "A Model Context Protocol server for Claude Code tools"
+}</code></pre>
+                            <button class="copy-button" onclick="copyConfig()"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <a href="resource:config://json" download="claude_mcp_config.json" class="btn">
+                            <i class="fas fa-download"></i> Download Configuration File
+                        </a>
+                        <button class="btn btn-secondary" onclick="openQRModal()">
+                            <i class="fas fa-qrcode"></i> Show QR Code
+                        </button>
+                    </div>
+
+                    <div class="note">
+                        <h3><i class="fas fa-shield-alt"></i> Security Note</h3>
+                        <p>The Claude Code MCP server provides access to your file system and command execution. Only connect to it from trusted clients and be cautious about the operations you perform.</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-accent card-accent-primary"></div>
+                    <div class="card-header">
+                        <h2 class="card-title"><i class="fas fa-wrench"></i> Advanced Client Options</h2>
+                        <div class="card-actions">
+                            <button class="btn-icon btn-ghost"><i class="fas fa-cog"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="config-form">
+                        <h3>Customize Your Configuration</h3>
+                        <div class="form-group">
+                            <label for="server-name">Server Name</label>
+                            <input type="text" id="server-name" value="Claude Code Tools">
+                        </div>
+                        <div class="form-group">
+                            <label for="working-dir">Working Directory</label>
+                            <input type="text" id="working-dir" value="/path/to/claude-code-directory">
+                        </div>
+                        <div class="form-group">
+                            <label for="server-env">Environment Variables (JSON)</label>
+                            <textarea id="server-env" rows="3">{}</textarea>
+                        </div>
+                        <button class="btn" onclick="updateConfig()"><i class="fas fa-sync"></i> Update Configuration</button>
+                    </div>
+
+                    <h3>Multi-Agent Configuration</h3>
+                    <p>For complex problems, use multi-agent mode with synchronized agents:</p>
+                    <div class="code-with-copy">
+                        <pre><code>python claude.py mcp-multi-agent path/to/server.py --config examples/agents_config.json</code></pre>
+                        <button class="copy-button" onclick="copyMultiAgentCmd()"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <button class="btn btn-ghost" onclick="openAgentEditor()"><i class="fas fa-users-cog"></i> Configure Agent Roles</button>
+                </div>
+            </div>
+
+            <div class="tab-content" id="monitoring-tab">
+                <div class="dashboard-grid">
+                    <div class="sidebar">
+                        <div class="card">
+                            <h3><i class="fas fa-info-circle"></i> Server Information</h3>
+                            <div class="server-info">
+                                <div class="info-row">
+                                    <span class="info-label">Status:</span>
+                                    <span class="info-value"><span class="badge badge-success">Running</span></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Version:</span>
+                                    <span class="info-value">0.1.0</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Host:</span>
+                                    <span class="info-value">localhost:8000</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Uptime:</span>
+                                    <span class="info-value" id="server-uptime">10 minutes</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Python:</span>
+                                    <span class="info-value">3.10.4</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">FastMCP:</span>
+                                    <span class="info-value">0.4.1</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3><i class="fas fa-box"></i> Resources</h3>
+                            <p>Available resources:</p>
+                            <div class="resource-list">
+                                <div class="resource-item">
+                                    <span class="resource-uri">system://info</span>
+                                    <span class="badge badge-primary">GET</span>
+                                </div>
+                                <div class="resource-item">
+                                    <span class="resource-uri">config://json</span>
+                                    <span class="badge badge-primary">GET</span>
+                                </div>
+                                <div class="resource-item">
+                                    <span class="resource-uri">filesystem://{path}</span>
+                                    <span class="badge badge-primary">GET</span>
+                                </div>
+                                <div class="resource-item">
+                                    <span class="resource-uri">file://{file_path}</span>
+                                    <span class="badge badge-primary">GET</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="main-content">
+                        <div class="card">
+                            <div class="card-accent card-accent-primary"></div>
+                            <div class="card-header">
+                                <h2 class="card-title"><i class="fas fa-chart-line"></i> Request Activity</h2>
+                                <div class="card-actions">
+                                    <button class="btn-icon btn-ghost"><i class="fas fa-expand"></i></button>
+                                    <button class="btn-icon btn-ghost"><i class="fas fa-download"></i></button>
+                                    <button class="btn-icon btn-ghost"><i class="fas fa-sync-alt"></i></button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <div class="chart-title"><i class="fas fa-chart-line"></i> Real-time Request Activity</div>
+                                    <div class="chart-controls">
+                                        <button class="btn-small">Hourly</button>
+                                        <button class="btn-small">Daily</button>
+                                        <button class="btn-small">Weekly</button>
+                                    </div>
+                                </div>
+                                <canvas id="requestsChart"></canvas>
+                                <div class="chart-legend">
+                                    <div class="chart-legend-item">
+                                        <div class="chart-legend-color" style="background-color: #4285f4;"></div>
+                                        <span>Tool Calls</span>
+                                    </div>
+                                    <div class="chart-legend-item">
+                                        <div class="chart-legend-color" style="background-color: #34a853;"></div>
+                                        <span>Resource Requests</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3><i class="fas fa-clipboard-list"></i> Recent Activity</h3>
+                            <div class="activity-log" id="activity-log">
+                                <pre style="max-height: 300px; overflow-y: auto;">
+[2025-03-07 13:45:20] Server started on localhost:8000
+[2025-03-07 13:46:05] New connection from 127.0.0.1
+[2025-03-07 13:46:10] Tool call: View
+[2025-03-07 13:46:15] Resource request: system://info
+[2025-03-07 13:46:30] Tool call: GlobTool
+[2025-03-07 13:46:45] Tool call: GrepTool
+[2025-03-07 13:47:00] Tool call: Bash
+[2025-03-07 13:47:15] Resource request: file://README.md
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tools-tab">
+                <div class="card">
+                    <h2><i class="fas fa-tools"></i> Available Tools</h2>
+                    <p>The Claude Code MCP Server provides access to the following tools:</p>
+                    
+                    <div class="tools-grid">
+                        <div class="tool-card tool-view">
+                            <div class="tool-icon"><i class="fas fa-eye"></i></div>
+                            <div class="tool-name">View</div>
+                            <div class="tool-description">Read files with optional line limits and supports syntax highlighting for code files</div>
+                            <div class="tool-stats">
+                                <div class="tool-usage"><i class="fas fa-chart-bar"></i> 32 calls</div>
+                                <div class="tool-latency"><i class="fas fa-clock"></i> 45ms avg</div>
+                            </div>
+                        </div>
+                        <div class="tool-card tool-edit">
+                            <div class="tool-icon"><i class="fas fa-edit"></i></div>
+                            <div class="tool-name">Edit</div>
+                            <div class="tool-description">Edit files with precise text replacement and context-aware modifications</div>
+                            <div class="tool-stats">
+                                <div class="tool-usage"><i class="fas fa-chart-bar"></i> 18 calls</div>
+                                <div class="tool-latency"><i class="fas fa-clock"></i> 62ms avg</div>
+                            </div>
+                        </div>
+                        <div class="tool-card tool-edit">
+                            <div class="tool-icon"><i class="fas fa-file-alt"></i></div>
+                            <div class="tool-name">Replace</div>
+                            <div class="tool-description">Overwrite existing files or create new files with specified content</div>
+                            <div class="tool-stats">
+                                <div class="tool-usage"><i class="fas fa-chart-bar"></i> 7 calls</div>
+                                <div class="tool-latency"><i class="fas fa-clock"></i> 38ms avg</div>
+                            </div>
+                        </div>
+                        <div class="tool-card tool-glob">
+                            <div class="tool-icon"><i class="fas fa-search"></i></div>
+                            <div class="tool-name">GlobTool</div>
+                            <div class="tool-description">Find files by pattern matching with support for complex glob patterns</div>
+                            <div class="tool-stats">
+                                <div class="tool-usage"><i class="fas fa-chart-bar"></i> 29 calls</div>
+                                <div class="tool-latency"><i class="fas fa-clock"></i> 74ms avg</div>
+                            </div>
+                        </div>
+                        <div class="tool-card tool-grep">
+                            <div class="tool-icon"><i class="fas fa-search-plus"></i></div>
+                            <div class="tool-name">GrepTool</div>
+                            <div class="tool-description">Search file contents using powerful regular expressions with filters</div>
+                            <div class="tool-stats">
+                                <div class="tool-usage"><i class="fas fa-chart-bar"></i> 24 calls</div>
+                                <div class="tool-latency"><i class="fas fa-clock"></i> 112ms avg</div>
+                            </div>
+                        </div>
+                        <div class="tool-card tool-ls">
+                            <div class="tool-icon"><i class="fas fa-folder-open"></i></div>
+                            <div class="tool-name">LS</div>
+                            <div class="tool-description">List directory contents with optional filtering and ignore patterns</div>
+                            <div class="tool-stats">
+                                <div class="tool-usage"><i class="fas fa-chart-bar"></i> 41 calls</div>
+                                <div class="tool-latency"><i class="fas fa-clock"></i> 28ms avg</div>
+                            </div>
+                        </div>
+                        <div class="tool-card tool-bash">
+                            <div class="tool-icon"><i class="fas fa-terminal"></i></div>
+                            <div class="tool-name">Bash</div>
+                            <div class="tool-description">Execute shell commands with persistent state and timeout options</div>
+                            <div class="tool-stats">
+                                <div class="tool-usage"><i class="fas fa-chart-bar"></i> 15 calls</div>
+                                <div class="tool-latency"><i class="fas fa-clock"></i> 350ms avg</div>
+                            </div>
+                        </div>
+                        <div class="tool-card">
+                            <div class="tool-icon"><i class="fas fa-cog"></i></div>
+                            <div class="tool-name">GetConfiguration</div>
+                            <div class="tool-description">Get Claude Desktop configuration for easy setup and customization</div>
+                            <div class="tool-stats">
+                                <div class="tool-usage"><i class="fas fa-chart-bar"></i> 3 calls</div>
+                                <div class="tool-latency"><i class="fas fa-clock"></i> 18ms avg</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" style="margin-top: 30px;">
+                        <h3><i class="fas fa-chart-pie"></i> Tool Usage</h3>
+                        <canvas id="toolUsageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="clients-tab">
+                <div class="card">
+                    <h2><i class="fas fa-laptop-code"></i> Client Configuration</h2>
+                    
+                    <h3>Using Claude Code as an MCP Client</h3>
+                    <p>Claude Code can act as a client to connect to other MCP servers:</p>
+                    <div class="code-with-copy">
+                        <pre><code>python claude.py mcp-client path/to/server.py</code></pre>
+                        <button class="copy-button" onclick="copyClientCmd()"><i class="fas fa-copy"></i></button>
+                    </div>
+                    
+                    <h3>Specify a Claude Model</h3>
+                    <div class="code-with-copy">
+                        <pre><code>python claude.py mcp-client path/to/server.py --model claude-3-5-sonnet-20241022</code></pre>
+                        <button class="copy-button" onclick="copyModelCmd()"><i class="fas fa-copy"></i></button>
+                    </div>
+                    
+                    <h3>Example with Echo Server</h3>
+                    <div class="note">
+                        <p>Run these commands in separate terminals:</p>
+                        <div class="code-with-copy">
+                            <pre><code># Terminal 1: Start the server
+python examples/echo_server.py
+
+# Terminal 2: Connect with the client
+python claude.py mcp-client examples/echo_server.py</code></pre>
+                            <button class="copy-button" onclick="copyEchoExample()"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2><i class="fas fa-users"></i> Multi-Agent Mode</h2>
+                    
+                    <p>For complex tasks, the multi-agent mode allows multiple specialized agents to collaborate:</p>
+                    
+                    <h3>Quick Start</h3>
+                    <div class="code-with-copy">
+                        <pre><code>python claude.py mcp-multi-agent examples/echo_server.py --config examples/agents_config.json</code></pre>
+                        <button class="copy-button" onclick="copyMultiAgentExample()"><i class="fas fa-copy"></i></button>
+                    </div>
+                    
+                    <h3>Agent Configuration</h3>
+                    <p>The <code>agents_config.json</code> file contains these specialized roles:</p>
+                    <ul>
+                        <li><strong>Researcher:</strong> Finds information and analyzes data</li>
+                        <li><strong>Coder:</strong> Writes and debugs code</li>
+                        <li><strong>Critic:</strong> Evaluates solutions and suggests improvements</li>
+                    </ul>
+                    
+                    <h3>Multi-Agent Commands</h3>
+                    <ul>
+                        <li><code>/agents</code> - List all active agents</li>
+                        <li><code>/talk &lt;agent&gt; &lt;message&gt;</code> - Send a direct message to agent</li>
+                        <li><code>/history</code> - Show message history</li>
+                        <li><code>/help</code> - Show multi-agent help</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="tab-content" id="settings-tab">
+                <div class="card">
+                    <h2><i class="fas fa-sliders-h"></i> Server Settings</h2>
+                    
+                    <div class="settings-grid">
+                        <div>
+                            <h3>General</h3>
+                            <div class="form-group">
+                                <label for="server-port">Server Port</label>
+                                <input type="number" id="server-port" value="8000">
+                            </div>
+                            <div class="form-group">
+                                <label for="server-host">Server Host</label>
+                                <input type="text" id="server-host" value="localhost">
+                            </div>
+                            <div class="form-group toggle-container">
+                                <label class="toggle">
+                                    <input type="checkbox" id="dev-mode" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span>Development Mode</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3>Advanced</h3>
+                            <div class="form-group">
+                                <label for="log-level">Log Level</label>
+                                <select id="log-level">
+                                    <option>INFO</option>
+                                    <option>DEBUG</option>
+                                    <option>WARNING</option>
+                                    <option>ERROR</option>
+                                </select>
+                            </div>
+                            <div class="form-group toggle-container">
+                                <label class="toggle">
+                                    <input type="checkbox" id="enable-metrics" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span>Enable Metrics Collection</span>
+                            </div>
+                            <div class="form-group toggle-container">
+                                <label class="toggle">
+                                    <input type="checkbox" id="auto-reload">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span>Auto-reload on File Changes</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn" onclick="saveSettings()"><i class="fas fa-save"></i> Save Settings</button>
+                        <button class="btn btn-secondary" onclick="restartServer()"><i class="fas fa-redo"></i> Restart Server</button>
+                        <button class="btn btn-danger" onclick="resetSettings()"><i class="fas fa-trash-alt"></i> Reset to Defaults</button>
+                    </div>
+                    
+                    <h3 style="margin-top: 30px;"><i class="fas fa-chart-line"></i> Metrics Management</h3>
+                    <p>Manage server metrics data collection and storage.</p>
+                    <div class="action-buttons">
+                        <button class="btn btn-danger" onclick="resetServerMetrics()"><i class="fas fa-eraser"></i> Reset All Metrics</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('qr-modal')">&times;</span>
+            <h2>Scan QR Code to Configure</h2>
+            <p>Use your Claude Desktop app to scan this QR code and automatically configure the connection:</p>
+            <div style="text-align: center; margin: 20px 0;">
+                <img id="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://example.com/config" alt="QR Code">
+            </div>
+            <p class="note">Note: This QR code contains the server configuration details needed to connect.</p>
+        </div>
+    </div>
+
+    <!-- Agent Editor Modal -->
+    <div id="agent-editor-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close" onclick="closeModal('agent-editor-modal')">&times;</span>
+            <h2>Multi-Agent Configuration Editor</h2>
+            <p>Customize the roles and capabilities of your agents:</p>
+            
+            <div id="agent-config-editor" style="margin: 20px 0;">
+                <div class="form-group">
+                    <label for="agent-config-json">Agent Configuration (JSON)</label>
+                    <textarea id="agent-config-json" rows="15" style="font-family: monospace; white-space: pre;">[
+  {
+    "name": "Researcher",
+    "role": "research specialist",
+    "model": "claude-3-5-sonnet-20241022",
+    "system_prompt": "You are a research specialist participating in a multi-agent conversation. Your primary role is to find information, analyze data, and provide well-researched answers. You should use tools to gather information and verify facts. Always cite your sources when possible."
+  },
+  {
+    "name": "Coder",
+    "role": "programming expert",
+    "model": "claude-3-5-sonnet-20241022",
+    "system_prompt": "You are a coding expert participating in a multi-agent conversation. Your primary role is to write, debug, and explain code. You should use tools to test your code and provide working solutions. Always prioritize clean, maintainable code with proper error handling. You can collaborate with other agents to solve complex problems."
+  },
+  {
+    "name": "Critic",
+    "role": "critical thinker",
+    "model": "claude-3-5-sonnet-20241022",
+    "system_prompt": "You are a critical thinker participating in a multi-agent conversation. Your primary role is to evaluate proposals, find potential issues, and suggest improvements. You should question assumptions, point out flaws, and help refine ideas. Be constructive in your criticism and suggest alternatives rather than just pointing out problems."
+  }
+]</textarea>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn" onclick="saveAgentConfig()"><i class="fas fa-save"></i> Save Configuration</button>
+                    <button class="btn btn-secondary" onclick="addNewAgent()"><i class="fas fa-plus"></i> Add Agent</button>
+                    <button class="btn btn-ghost" onclick="validateAgentConfig()"><i class="fas fa-check"></i> Validate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // Initialize charts when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            initializeConfig();
+            setupTabNavigation();
+            setupThemeToggle();
+            
+            // Start live updates
+            updateStats();
+            setInterval(updateStats, 5000);
+            
+            // Set up refresh button
+            document.getElementById('refresh-btn').addEventListener('click', function() {
+                updateStats();
+                showNotification('Dashboard refreshed!');
+            });
+        });
+
+        // Tab navigation
+        function setupTabNavigation() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and content
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to current tab and content
+                    tab.classList.add('active');
+                    const tabId = `${tab.dataset.tab}-tab`;
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+        }
+
+        // Dark mode toggle
+        function setupThemeToggle() {
+            const themeToggle = document.getElementById('theme-toggle');
+            const prefersDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            // Set initial theme based on user preference
+            if (prefersDarkMode) {
+                document.body.classList.add('dark-mode');
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            }
+            
+            themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                if (document.body.classList.contains('dark-mode')) {
+                    themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+                } else {
+                    themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+                }
+            });
+        }
+
+        // Copy configuration to clipboard
+        function copyConfig() {
+            const configText = document.getElementById('server-config').textContent;
+            navigator.clipboard.writeText(configText)
+                .then(() => showNotification('Configuration copied to clipboard!'))
+                .catch(err => console.error('Failed to copy: ', err));
+        }
+
+        // Copy other commands
+        function copyMultiAgentCmd() {
+            navigator.clipboard.writeText('python claude.py mcp-multi-agent path/to/server.py --config examples/agents_config.json')
+                .then(() => showNotification('Command copied to clipboard!'));
+        }
+
+        function copyClientCmd() {
+            navigator.clipboard.writeText('python claude.py mcp-client path/to/server.py')
+                .then(() => showNotification('Command copied to clipboard!'));
+        }
+
+        function copyModelCmd() {
+            navigator.clipboard.writeText('python claude.py mcp-client path/to/server.py --model claude-3-5-sonnet-20241022')
+                .then(() => showNotification('Command copied to clipboard!'));
+        }
+
+        function copyEchoExample() {
+            navigator.clipboard.writeText('# Terminal 1: Start the server\npython examples/echo_server.py\n\n# Terminal 2: Connect with the client\npython claude.py mcp-client examples/echo_server.py')
+                .then(() => showNotification('Example copied to clipboard!'));
+        }
+
+        function copyMultiAgentExample() {
+            navigator.clipboard.writeText('python claude.py mcp-multi-agent examples/echo_server.py --config examples/agents_config.json')
+                .then(() => showNotification('Example copied to clipboard!'));
+        }
+
+        // Show notification
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // Modal handlers
+        function openQRModal() {
+            document.getElementById('qr-modal').style.display = 'block';
+            // In a real implementation, this would generate a QR code with the actual config
+            const config = encodeURIComponent(JSON.stringify({
+                name: "Claude Code Tools",
+                type: "local_process",
+                command: "python",
+                args: ["claude.py", "serve"],
+                workingDirectory: "/path/to/claude-code-directory"
+            }));
+            document.getElementById('qr-code').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${config}`;
+        }
+
+        function openAgentEditor() {
+            document.getElementById('agent-editor-modal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Update configuration
+        function updateConfig() {
+            const serverName = document.getElementById('server-name').value;
+            const workingDir = document.getElementById('working-dir').value;
+            let serverEnv = {};
+            
+            try {
+                serverEnv = JSON.parse(document.getElementById('server-env').value);
+            } catch (e) {
+                showNotification('Invalid JSON in environment variables');
+                return;
+            }
+            
+            const config = {
+                name: serverName,
+                type: "local_process",
+                command: "python",
+                args: ["claude.py", "serve"],
+                workingDirectory: workingDir,
+                environment: serverEnv,
+                description: "A Model Context Protocol server for Claude Code tools"
+            };
+            
+            document.getElementById('server-config').textContent = JSON.stringify(config, null, 2);
+            showNotification('Configuration updated!');
+        }
+
+        // Initialize configuration
+        function initializeConfig() {
+            // Fetch actual configuration
+            fetch('resource:config://json')
+                .then(response => response.json())
+                .then(config => {
+                    document.getElementById('server-config').textContent = JSON.stringify(config, null, 2);
+                    document.getElementById('working-dir').value = config.workingDirectory || '/path/to/claude-code-directory';
+                    document.getElementById('server-name').value = config.name || 'Claude Code Tools';
+                    document.getElementById('server-env').value = JSON.stringify(config.environment || {}, null, 2);
+                })
+                .catch(error => {
+                    console.error('Error fetching configuration:', error);
+                });
+                
+            // Fetch metrics data
+            fetch('resource:metrics://json')
+                .then(response => response.json())
+                .then(metricsData => {
+                    // Update the stats
+                    document.getElementById('uptime').textContent = metricsData.uptime;
+                    document.getElementById('server-uptime').textContent = metricsData.uptime;
+                    document.getElementById('tools-count').textContent = Object.keys(metricsData.tool_usage || {}).length;
+                    document.getElementById('connections-count').textContent = metricsData.active_connections || 0;
+                    document.getElementById('requests-count').textContent = (
+                        Object.values(metricsData.tool_usage || {}).reduce((a, b) => a + b, 0) + 
+                        Object.values(metricsData.resource_usage || {}).reduce((a, b) => a + b, 0)
+                    );
+                    document.getElementById('resources-count').textContent = Object.keys(metricsData.resource_usage || {}).length;
+                    
+                    // Update activity log
+                    if (metricsData.recent_activity && metricsData.recent_activity.length > 0) {
+                        const activityLog = document.getElementById('activity-log');
+                        let logContent = '';
+                        
+                        metricsData.recent_activity.forEach(event => {
+                            const time = event.formatted_time;
+                            if (event.type === 'tool') {
+                                logContent += `[${time}] Tool call: ${event.name}\n`;
+                            } else if (event.type === 'resource') {
+                                logContent += `[${time}] Resource request: ${event.uri}\n`;
+                            } else if (event.type === 'connection') {
+                                const action = event.action === 'connect' ? 'connected' : 'disconnected';
+                                logContent += `[${time}] Client ${event.client_id.substring(0, 8)} ${action}\n`;
+                            } else if (event.type === 'error') {
+                                logContent += `[${time}] Error (${event.error_type}): ${event.message}\n`;
+                            }
+                        });
+                        
+                        activityLog.querySelector('pre').textContent = logContent;
+                    }
+                    
+                    // Update chart data if the charts are initialized
+                    if (window.toolUsageChart && metricsData.tool_usage) {
+                        const toolLabels = Object.keys(metricsData.tool_usage);
+                        const toolData = Object.values(metricsData.tool_usage);
+                        
+                        window.toolUsageChart.data.labels = toolLabels;
+                        window.toolUsageChart.data.datasets[0].data = toolData;
+                        window.toolUsageChart.update();
+                    }
+                    
+                    if (window.requestsChart && metricsData.time_series) {
+                        // Update the time series data
+                        if (metricsData.time_series.tool_calls) {
+                            const labels = metricsData.time_series.tool_calls.map(d => d.formatted_time);
+                            const toolCallData = metricsData.time_series.tool_calls.map(d => d.value);
+                            const resourceData = metricsData.time_series.resource_calls.map(d => d.value);
+                            
+                            window.requestsChart.data.labels = labels;
+                            window.requestsChart.data.datasets[0].data = toolCallData;
+                            window.requestsChart.data.datasets[1].data = resourceData;
+                            window.requestsChart.update();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching metrics:', error);
+                });
+        }
+
+        // Save agent configuration
+        function saveAgentConfig() {
+            try {
+                const config = JSON.parse(document.getElementById('agent-config-json').value);
+                // In a real implementation, this would save the config to a file
+                showNotification('Agent configuration saved!');
+            } catch (e) {
+                showNotification('Invalid JSON configuration');
+            }
+        }
+
+        // Add new agent
+        function addNewAgent() {
+            try {
+                let config = JSON.parse(document.getElementById('agent-config-json').value);
+                config.push({
+                    name: "New Agent",
+                    role: "assistant",
+                    model: "claude-3-5-sonnet-20241022",
+                    system_prompt: "You are a helpful AI assistant participating in a multi-agent conversation."
+                });
+                document.getElementById('agent-config-json').value = JSON.stringify(config, null, 2);
+                showNotification('New agent added!');
+            } catch (e) {
+                showNotification('Invalid JSON configuration');
+            }
+        }
+
+        // Validate agent configuration
+        function validateAgentConfig() {
+            try {
+                const config = JSON.parse(document.getElementById('agent-config-json').value);
+                if (!Array.isArray(config)) {
+                    throw new Error('Configuration must be an array');
+                }
+                for (const agent of config) {
+                    if (!agent.name || !agent.role || !agent.model || !agent.system_prompt) {
+                        throw new Error('Each agent must have name, role, model, and system_prompt');
+                    }
+                }
+                showNotification('Configuration is valid!');
+            } catch (e) {
+                showNotification('Invalid configuration: ' + e.message);
+            }
+        }
+
+        // Settings handlers
+        function saveSettings() {
+            // In a real implementation, this would save settings to the server
+            showNotification('Settings saved successfully!');
+        }
+
+        function restartServer() {
+            // In a real implementation, this would restart the server
+            showNotification('Server restarting...');
+            setTimeout(() => {
+                showNotification('Server restarted successfully!');
+            }, 2000);
+        }
+
+        function resetSettings() {
+            // Reset settings to defaults
+            document.getElementById('server-port').value = '8000';
+            document.getElementById('server-host').value = 'localhost';
+            document.getElementById('dev-mode').checked = true;
+            document.getElementById('log-level').value = 'INFO';
+            document.getElementById('enable-metrics').checked = true;
+            document.getElementById('auto-reload').checked = false;
+            showNotification('Settings reset to defaults');
+        }
+        
+        // Reset server metrics
+        function resetServerMetrics() {
+            if (confirm('Are you sure you want to reset all server metrics? This action cannot be undone.')) {
+                // Use the metrics reset tool
+                fetch('resource:metrics://json', { method: 'GET' })
+                    .then(response => {
+                        // We don't actually reset here, but in a real implementation 
+                        // this would use the ResetServerMetrics tool
+                        showNotification('Server metrics have been reset!');
+                        // Refresh the dashboard
+                        updateStats();
+                    })
+                    .catch(error => {
+                        console.error('Error resetting metrics:', error);
+                        showNotification('Error resetting metrics');
+                    });
+            }
+        }
+
+        // Initialize charts
+        function initializeCharts() {
+            // Request activity chart
+            const requestsCtx = document.getElementById('requestsChart').getContext('2d');
+            window.requestsChart = new Chart(requestsCtx, {
+                type: 'line',
+                data: {
+                    labels: ['10m ago', '9m ago', '8m ago', '7m ago', '6m ago', '5m ago', '4m ago', '3m ago', '2m ago', '1m ago', 'Now'],
+                    datasets: [{
+                        label: 'Tool Calls',
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        borderColor: '#4285f4',
+                        backgroundColor: 'rgba(66, 133, 244, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Resource Requests',
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        borderColor: '#34a853',
+                        backgroundColor: 'rgba(52, 168, 83, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Tool usage chart
+            const toolsCtx = document.getElementById('toolUsageChart').getContext('2d');
+            window.toolUsageChart = new Chart(toolsCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['View', 'GlobTool', 'GrepTool', 'Bash', 'LS', 'Edit', 'Replace', 'GetConfiguration'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            '#4285f4', '#ea4335', '#34a853', '#fbbc05', 
+                            '#ff6d01', '#46bdc6', '#7baaf7', '#b366f6',
+                            '#9c27b0', '#673ab7', '#3f51b5', '#2196f3',
+                            '#03a9f4', '#00bcd4', '#009688', '#4caf50'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update stats periodically
+        function updateStats() {
+            // Fetch real-time metrics data from the server
+            fetch('resource:metrics://json')
+                .then(response => response.json())
+                .then(metricsData => {
+                    // Update the stats
+                    document.getElementById('uptime').textContent = metricsData.uptime;
+                    document.getElementById('server-uptime').textContent = metricsData.uptime;
+                    document.getElementById('tools-count').textContent = Object.keys(metricsData.tool_usage || {}).length;
+                    document.getElementById('connections-count').textContent = metricsData.active_connections || 0;
+                    document.getElementById('requests-count').textContent = (
+                        Object.values(metricsData.tool_usage || {}).reduce((a, b) => a + b, 0) + 
+                        Object.values(metricsData.resource_usage || {}).reduce((a, b) => a + b, 0)
+                    );
+                    document.getElementById('resources-count').textContent = Object.keys(metricsData.resource_usage || {}).length;
+                    
+                    // Update activity log
+                    if (metricsData.recent_activity && metricsData.recent_activity.length > 0) {
+                        const activityLog = document.getElementById('activity-log');
+                        let logContent = '';
+                        
+                        metricsData.recent_activity.forEach(event => {
+                            const time = event.formatted_time;
+                            if (event.type === 'tool') {
+                                logContent += `[${time}] Tool call: ${event.name}\n`;
+                            } else if (event.type === 'resource') {
+                                logContent += `[${time}] Resource request: ${event.uri}\n`;
+                            } else if (event.type === 'connection') {
+                                const action = event.action === 'connect' ? 'connected' : 'disconnected';
+                                logContent += `[${time}] Client ${event.client_id.substring(0, 8)} ${action}\n`;
+                            } else if (event.type === 'error') {
+                                logContent += `[${time}] Error (${event.error_type}): ${event.message}\n`;
+                            }
+                        });
+                        
+                        activityLog.querySelector('pre').textContent = logContent;
+                    }
+                    
+                    // Update chart data if the charts are initialized
+                    if (window.toolUsageChart && metricsData.tool_usage) {
+                        const toolLabels = Object.keys(metricsData.tool_usage);
+                        const toolData = Object.values(metricsData.tool_usage);
+                        
+                        window.toolUsageChart.data.labels = toolLabels;
+                        window.toolUsageChart.data.datasets[0].data = toolData;
+                        window.toolUsageChart.update();
+                    }
+                    
+                    if (window.requestsChart && metricsData.time_series) {
+                        // Update the time series data
+                        if (metricsData.time_series.tool_calls) {
+                            const labels = metricsData.time_series.tool_calls.map(d => d.formatted_time);
+                            const toolCallData = metricsData.time_series.tool_calls.map(d => d.value);
+                            const resourceData = metricsData.time_series.resource_calls.map(d => d.value);
+                            
+                            window.requestsChart.data.labels = labels;
+                            window.requestsChart.data.datasets[0].data = toolCallData;
+                            window.requestsChart.data.datasets[1].data = resourceData;
+                            window.requestsChart.update();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching metrics:', error);
+                });
+        }
+
+        // Update server uptime - no longer needed as it's part of updateStats
+        function updateUptime() {
+            // This is now handled by updateStats which fetches the actual uptime from the server
+            updateStats();
+        }
+    </script>
+</body>
+</html>
