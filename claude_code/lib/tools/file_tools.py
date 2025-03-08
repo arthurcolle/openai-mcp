@@ -220,6 +220,247 @@ def replace_file(file_path: str, content: str) -> str:
         return f"Error writing file: {str(e)}"
 
 
+@tool(
+    name="MakeDirectory",
+    description="Create a new directory on the local filesystem.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "directory_path": {
+                "type": "string",
+                "description": "The absolute path to the directory to create"
+            },
+            "parents": {
+                "type": "boolean",
+                "description": "Whether to create parent directories if they don't exist",
+                "default": True
+            },
+            "mode": {
+                "type": "integer",
+                "description": "The file mode (permissions) to set for the directory (octal)",
+                "default": 0o755
+            }
+        },
+        "required": ["directory_path"]
+    },
+    needs_permission=True,
+    category="file"
+)
+def make_directory(directory_path: str, parents: bool = True, mode: int = 0o755) -> str:
+    """Create a new directory.
+    
+    Args:
+        directory_path: Absolute path to the directory to create
+        parents: Whether to create parent directories
+        mode: File mode (permissions) to set
+        
+    Returns:
+        Success or error message
+        
+    Raises:
+        PermissionError: If the directory can't be created
+    """
+    logger.info(f"Creating directory: {directory_path}")
+    
+    if not os.path.isabs(directory_path):
+        return f"Error: Directory path must be absolute: {directory_path}"
+    
+    try:
+        if os.path.exists(directory_path):
+            if os.path.isdir(directory_path):
+                return f"Directory already exists: {directory_path}"
+            else:
+                return f"Error: Path exists but is not a directory: {directory_path}"
+        
+        # Create directory
+        os.makedirs(directory_path, exist_ok=parents, mode=mode)
+        
+        return f"Successfully created directory: {directory_path}"
+    
+    except Exception as e:
+        logger.exception(f"Error creating directory: {directory_path}")
+        return f"Error creating directory: {str(e)}"
+
+
+@tool(
+    name="ListDirectory",
+    description="List files and directories in a given path with detailed information.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "directory_path": {
+                "type": "string",
+                "description": "The absolute path to the directory to list"
+            },
+            "pattern": {
+                "type": "string",
+                "description": "Optional glob pattern to filter files (e.g., '*.py')"
+            },
+            "recursive": {
+                "type": "boolean",
+                "description": "Whether to list files recursively",
+                "default": False
+            },
+            "show_hidden": {
+                "type": "boolean",
+                "description": "Whether to show hidden files (starting with .)",
+                "default": False
+            },
+            "details": {
+                "type": "boolean",
+                "description": "Whether to show detailed information (size, permissions, etc.)",
+                "default": False
+            }
+        },
+        "required": ["directory_path"]
+    },
+    category="file"
+)
+def list_directory(
+    directory_path: str, 
+    pattern: Optional[str] = None, 
+    recursive: bool = False,
+    show_hidden: bool = False,
+    details: bool = False
+) -> str:
+    """List files and directories with detailed information.
+    
+    Args:
+        directory_path: Absolute path to the directory
+        pattern: Glob pattern to filter files
+        recursive: Whether to list files recursively
+        show_hidden: Whether to show hidden files
+        details: Whether to show detailed information
+        
+    Returns:
+        Directory listing as formatted text
+    """
+    logger.info(f"Listing directory: {directory_path}")
+    
+    if not os.path.isabs(directory_path):
+        return f"Error: Directory path must be absolute: {directory_path}"
+    
+    if not os.path.exists(directory_path):
+        return f"Error: Directory not found: {directory_path}"
+    
+    if not os.path.isdir(directory_path):
+        return f"Error: Path is not a directory: {directory_path}"
+    
+    try:
+        import glob
+        import stat
+        from datetime import datetime
+        
+        # Build the pattern
+        if pattern:
+            if recursive:
+                search_pattern = os.path.join(directory_path, "**", pattern)
+            else:
+                search_pattern = os.path.join(directory_path, pattern)
+        else:
+            if recursive:
+                search_pattern = os.path.join(directory_path, "**")
+            else:
+                search_pattern = os.path.join(directory_path, "*")
+        
+        # Get all matching files
+        if recursive:
+            matches = glob.glob(search_pattern, recursive=True)
+        else:
+            matches = glob.glob(search_pattern)
+        
+        # Filter hidden files if needed
+        if not show_hidden:
+            matches = [m for m in matches if not os.path.basename(m).startswith('.')]
+        
+        # Sort by name
+        matches.sort()
+        
+        # Format the output
+        result = []
+        
+        if details:
+            # Header
+            result.append(f"{'Type':<6} {'Permissions':<11} {'Size':<10} {'Modified':<20} {'Name'}")
+            result.append("-" * 80)
+            
+            for item_path in matches:
+                try:
+                    # Get file stats
+                    item_stat = os.stat(item_path)
+                    
+                    # Determine type
+                    if os.path.isdir(item_path):
+                        item_type = "dir"
+                    elif os.path.islink(item_path):
+                        item_type = "link"
+                    else:
+                        item_type = "file"
+                    
+                    # Format permissions
+                    mode = item_stat.st_mode
+                    perms = ""
+                    for who in "USR", "GRP", "OTH":
+                        for what in "R", "W", "X":
+                            perm = getattr(stat, f"S_I{what}{who}")
+                            perms += what.lower() if mode & perm else "-"
+                    
+                    # Format size
+                    size = item_stat.st_size
+                    if size < 1024:
+                        size_str = f"{size}B"
+                    elif size < 1024 * 1024:
+                        size_str = f"{size/1024:.1f}KB"
+                    elif size < 1024 * 1024 * 1024:
+                        size_str = f"{size/(1024*1024):.1f}MB"
+                    else:
+                        size_str = f"{size/(1024*1024*1024):.1f}GB"
+                    
+                    # Format modification time
+                    mtime = datetime.fromtimestamp(item_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Format name (relative to the directory)
+                    name = os.path.relpath(item_path, directory_path)
+                    
+                    # Add to result
+                    result.append(f"{item_type:<6} {perms:<11} {size_str:<10} {mtime:<20} {name}")
+                
+                except Exception as e:
+                    result.append(f"Error getting info for {item_path}: {str(e)}")
+        else:
+            # Simple listing
+            dirs = []
+            files = []
+            
+            for item_path in matches:
+                name = os.path.relpath(item_path, directory_path)
+                if os.path.isdir(item_path):
+                    dirs.append(f"{name}/")
+                else:
+                    files.append(name)
+            
+            if dirs:
+                result.append("Directories:")
+                for d in dirs:
+                    result.append(f"  {d}")
+            
+            if files:
+                if dirs:
+                    result.append("")
+                result.append("Files:")
+                for f in files:
+                    result.append(f"  {f}")
+        
+        if not result:
+            return f"No matching items found in {directory_path}"
+        
+        return "\n".join(result)
+    
+    except Exception as e:
+        logger.exception(f"Error listing directory: {directory_path}")
+        return f"Error listing directory: {str(e)}"
+
+
 def register_file_tools(registry: ToolRegistry) -> None:
     """Register all file tools with the registry.
     
@@ -231,7 +472,9 @@ def register_file_tools(registry: ToolRegistry) -> None:
     file_tools = [
         view_file,
         edit_file,
-        replace_file
+        replace_file,
+        make_directory,
+        list_directory
     ]
     
     create_tools_from_functions(registry, file_tools)
