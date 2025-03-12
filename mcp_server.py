@@ -43,7 +43,7 @@ class MCPHealthResponse(BaseModel):
     version: str = "1.0.0"
     protocol_version: str = "0.1.0"
     provider: str = "OpenAI Code Assistant"
-    models: List[str] = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
+    models: List[str] = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-mini"]
     uptime: Optional[float] = None
     request_count: Optional[int] = None
     cache_hit_ratio: Optional[float] = None
@@ -459,7 +459,8 @@ class MCPServer:
                     context, usage = await self._generate_with_openai(
                         processed_template, 
                         model, 
-                        template.get("system_prompt")
+                        template.get("system_prompt"),
+                        template.get("metadata", {})
                     )
                 else:
                     # Use the processed template directly
@@ -531,7 +532,7 @@ class MCPServer:
                 
                 # Stream the context generation
                 return StreamingResponse(
-                    self._stream_context(processed_template, model, context_id, template.get("system_prompt")),
+                    self._stream_context(processed_template, model, context_id, template.get("system_prompt"), template.get("metadata", {})),
                     media_type="text/event-stream"
                 )
                 
@@ -697,9 +698,25 @@ class MCPServer:
                         "description": "Fast and efficient model",
                         "context_length": 16385,
                         "is_default": False
+                    },
+                    {
+                        "id": "o1",
+                        "name": "o1",
+                        "description": "OpenAI's reasoning-focused model with advanced capabilities",
+                        "context_length": 128000,
+                        "is_default": False,
+                        "features": ["reasoning_effort", "web_search"]
+                    },
+                    {
+                        "id": "o1-mini",
+                        "name": "o1-mini",
+                        "description": "Smaller and faster version of the o1 model",
+                        "context_length": 128000,
+                        "is_default": False,
+                        "features": ["reasoning_effort", "web_search"]
                     }
                 ],
-                "count": 3
+                "count": 5
             }
         
         @self.app.get("/stats", tags=["System"])
@@ -723,20 +740,6 @@ class MCPServer:
                     "platform": sys.platform
                 }
             }
-            
-        @self.app.post("/context/stream", tags=["Context"])
-        async def stream_context(request: MCPContextRequest):
-            """
-            Stream context generation.
-            
-            Similar to /context but streams the response as it's generated.
-            """
-            # In a real implementation, this would stream the response
-            # For now, we'll just return a simple response
-            return JSONResponse(
-                content={"message": "Streaming not implemented in this version"},
-                status_code=501
-            )
             
         # Error handlers
         @self.app.exception_handler(HTTPException)
@@ -912,7 +915,7 @@ class MCPServer:
         except Exception as e:
             logger.error(f"Error saving prompt templates: {str(e)}")
     
-    async def _generate_with_openai(self, prompt: str, model: str, system_prompt: Optional[str] = None) -> tuple:
+    async def _generate_with_openai(self, prompt: str, model: str, system_prompt: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> tuple:
         """Generate context using OpenAI API"""
         messages = []
         
@@ -923,14 +926,44 @@ class MCPServer:
         # Add user prompt
         messages.append({"role": "user", "content": prompt})
         
+        # Prepare API parameters
+        params = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.0,  # Use deterministic output for context generation
+            "max_tokens": 4000
+        }
+        
+        # Add reasoning_effort for o1 models if provided in metadata
+        if metadata and "reasoning_effort" in metadata and model.startswith("o1"):
+            reasoning_effort = metadata["reasoning_effort"]
+            
+            # Ensure reasoning_effort is a valid string value
+            valid_efforts = ["low", "medium", "high"]
+            
+            # Convert numeric values to string equivalents if needed
+            if isinstance(reasoning_effort, (int, float)):
+                if reasoning_effort <= 0.3:
+                    reasoning_effort = "low"
+                elif reasoning_effort <= 0.7:
+                    reasoning_effort = "medium"
+                else:
+                    reasoning_effort = "high"
+                logger.info(f"Converting numeric reasoning_effort to string value: {reasoning_effort}")
+            
+            # Validate string values
+            if isinstance(reasoning_effort, str) and reasoning_effort.lower() in valid_efforts:
+                params["reasoning_effort"] = reasoning_effort.lower()
+                logger.info(f"Using reasoning_effort={reasoning_effort} for o1 model")
+            else:
+                logger.warning(f"Invalid reasoning_effort value: {reasoning_effort}. Using 'medium' instead.")
+                params["reasoning_effort"] = "medium"
+        
         # Call OpenAI API
         try:
             response = await asyncio.to_thread(
                 self.openai_client.chat.completions.create,
-                model=model,
-                messages=messages,
-                temperature=0.0,  # Use deterministic output for context generation
-                max_tokens=4000
+                **params
             )
             
             # Extract content and usage
@@ -947,7 +980,7 @@ class MCPServer:
             logger.error(f"OpenAI API error: {str(e)}")
             raise ValueError(f"Error generating context with OpenAI: {str(e)}")
     
-    async def _stream_context(self, prompt: str, model: str, context_id: str, system_prompt: Optional[str] = None) -> AsyncGenerator[str, None]:
+    async def _stream_context(self, prompt: str, model: str, context_id: str, system_prompt: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> AsyncGenerator[str, None]:
         """Stream context generation using OpenAI API"""
         messages = []
         
@@ -958,6 +991,40 @@ class MCPServer:
         # Add user prompt
         messages.append({"role": "user", "content": prompt})
         
+        # Prepare API parameters
+        params = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.0,  # Use deterministic output for context generation
+            "stream": True,
+            "max_tokens": 4000
+        }
+        
+        # Add reasoning_effort for o1 models if provided in metadata
+        if metadata and "reasoning_effort" in metadata and model.startswith("o1"):
+            reasoning_effort = metadata["reasoning_effort"]
+            
+            # Ensure reasoning_effort is a valid string value
+            valid_efforts = ["low", "medium", "high"]
+            
+            # Convert numeric values to string equivalents if needed
+            if isinstance(reasoning_effort, (int, float)):
+                if reasoning_effort <= 0.3:
+                    reasoning_effort = "low"
+                elif reasoning_effort <= 0.7:
+                    reasoning_effort = "medium"
+                else:
+                    reasoning_effort = "high"
+                logger.info(f"Converting numeric reasoning_effort to string value: {reasoning_effort}")
+            
+            # Validate string values
+            if isinstance(reasoning_effort, str) and reasoning_effort.lower() in valid_efforts:
+                params["reasoning_effort"] = reasoning_effort.lower()
+                logger.info(f"Using reasoning_effort={reasoning_effort} for o1 model")
+            else:
+                logger.warning(f"Invalid reasoning_effort value: {reasoning_effort}. Using 'medium' instead.")
+                params["reasoning_effort"] = "medium"
+        
         # Initial event with context ID
         yield f"data: {json.dumps({'context_id': context_id, 'event': 'start'})}\n\n"
         
@@ -965,11 +1032,7 @@ class MCPServer:
             # Call OpenAI API with streaming
             stream = await asyncio.to_thread(
                 self.openai_client.chat.completions.create,
-                model=model,
-                messages=messages,
-                temperature=0.0,
-                max_tokens=4000,
-                stream=True
+                **params
             )
             
             full_content = ""
