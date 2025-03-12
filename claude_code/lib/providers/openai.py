@@ -110,7 +110,7 @@ class OpenAIProvider(BaseProvider):
                            tools: Optional[List[Dict[str, Any]]] = None,
                            temperature: float = 0.0,
                            stream: bool = True,
-                           reasoning_effort: Optional[float] = None,
+                           reasoning_effort: Optional[Union[str, float]] = None,
                            web_search: bool = False) -> Union[Dict[str, Any], Generator[Dict[str, Any], None, None]]:
         """Generate a completion from OpenAI.
         
@@ -119,7 +119,9 @@ class OpenAIProvider(BaseProvider):
             tools: Optional list of tool dictionaries
             temperature: Model temperature (0-1)
             stream: Whether to stream the response
-            reasoning_effort: Optional float (0-1) for controlling reasoning depth in o1 models
+            reasoning_effort: Controls reasoning depth in o1 models. 
+                             Accepts string values ("low", "medium", "high") or numeric values 
+                             which will be converted (0-0.3 -> "low", 0.31-0.7 -> "medium", >0.7 -> "high")
             web_search: Whether to enable web search capability for models that support it
             
         Returns:
@@ -157,7 +159,25 @@ class OpenAIProvider(BaseProvider):
             
             # Add reasoning_effort for o1 models if provided
             if reasoning_effort is not None and self._model.startswith("o1"):
-                kwargs["reasoning_effort"] = reasoning_effort
+                # Ensure reasoning_effort is a valid string value
+                valid_efforts = ["low", "medium", "high"]
+                
+                # Convert numeric values to string equivalents
+                if isinstance(reasoning_effort, (int, float)):
+                    if reasoning_effort <= 0.3:
+                        reasoning_effort = "low"
+                    elif reasoning_effort <= 0.7:
+                        reasoning_effort = "medium"
+                    else:
+                        reasoning_effort = "high"
+                    logger.info(f"Converting numeric reasoning_effort to string value: {reasoning_effort}")
+                
+                # Validate string values
+                if isinstance(reasoning_effort, str) and reasoning_effort.lower() in valid_efforts:
+                    kwargs["reasoning_effort"] = reasoning_effort.lower()
+                else:
+                    logger.warning(f"Invalid reasoning_effort value: {reasoning_effort}. Using 'medium' instead.")
+                    kwargs["reasoning_effort"] = "medium"
             
             # Enable web search if requested and supported
             if web_search and "web_search" in model_capabilities:
