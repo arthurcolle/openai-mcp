@@ -209,6 +209,9 @@
                 <h3>Settings</h3>
                 <label for="modelSelect">Model:</label>
                 <select id="modelSelect">
+                    <option value="o1" selected>o1 (Reasoning)</option>
+                    <option value="o1-preview">o1-preview</option>
+                    <option value="o1-mini">o1-mini</option>
                     <option value="gpt-4o">GPT-4o</option>
                     <option value="gpt-4-turbo">GPT-4 Turbo</option>
                     <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
@@ -216,6 +219,15 @@
                 
                 <label for="temperatureInput">Temperature:</label>
                 <input type="number" id="temperatureInput" min="0" max="2" step="0.1" value="0">
+                
+                <div id="reasoningEffortContainer" style="display: block;">
+                    <label for="reasoningEffortInput">Reasoning Effort (o1 models):</label>
+                    <select id="reasoningEffortInput">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
             </div>
         </div>
         
@@ -247,6 +259,7 @@
         const conversationList = document.getElementById('conversationList');
         const modelSelect = document.getElementById('modelSelect');
         const temperatureInput = document.getElementById('temperatureInput');
+        const reasoningEffortInput = document.getElementById('reasoningEffortInput');
         
         // Event Listeners
         sendButton.addEventListener('click', sendMessage);
@@ -258,6 +271,22 @@
             }
         });
         
+        // Add event listener for model selection change
+        modelSelect.addEventListener('change', updateModelSettings);
+        
+        // Function to update UI based on model selection
+        function updateModelSettings() {
+            const selectedModel = modelSelect.value;
+            const reasoningEffortContainer = document.getElementById('reasoningEffortContainer');
+            
+            // Show reasoning effort setting only for o1 models
+            if (selectedModel.startsWith('o1')) {
+                reasoningEffortContainer.style.display = 'block';
+            } else {
+                reasoningEffortContainer.style.display = 'none';
+            }
+        }
+        
         // Initialize
         function init() {
             // Load conversations from local storage
@@ -266,6 +295,9 @@
                 conversations = JSON.parse(savedConversations);
                 updateConversationList();
             }
+            
+            // Initialize UI settings
+            updateModelSettings();
         }
         
         // Create a new conversation
@@ -274,12 +306,23 @@
                 const model = modelSelect.value;
                 const temperature = parseFloat(temperatureInput.value);
                 
+                // Build conversation parameters
+                const conversationParams = { 
+                    model, 
+                    temperature 
+                };
+                
+                // Add reasoning_effort for o1 models
+                if (model.startsWith('o1')) {
+                    conversationParams.reasoning_effort = reasoningEffortInput.value;
+                }
+                
                 const response = await fetch(`${API_BASE_URL}/conversation`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ model, temperature })
+                    body: JSON.stringify(conversationParams)
                 });
                 
                 const data = await response.json();

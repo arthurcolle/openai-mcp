@@ -993,7 +993,7 @@ class MCPServer:
             TOKEN_USAGE.labels(model=model, type="completion").inc(completion_tokens)
             
             # Final event with complete context and usage
-            yield f"data: {json.dumps({
+            data = {
                 'event': 'end',
                 'context': full_content,
                 'usage': {
@@ -1001,7 +1001,8 @@ class MCPServer:
                     'completion_tokens': completion_tokens,
                     'total_tokens': total_tokens
                 }
-            })}\n\n"
+            }
+            yield f"data: {json.dumps(data)}\n\n"
             
         except Exception as e:
             logger.error(f"Error streaming context: {str(e)}")

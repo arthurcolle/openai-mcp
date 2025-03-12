@@ -298,21 +298,29 @@ async def get_server_metrics(metric_type: str = "all") -> str:
 
 
 # Add connection tracking
-@mcp.on_connect
-async def handle_connect(ctx: Context):
-    """Track client connections."""
+# @mcp.on_connect 装饰器在当前版本的 FastMCP 中不可用
+# async def handle_connect(ctx: Context):
+#     """Track client connections."""
+#     client_id = str(uuid.uuid4())
+#     ctx.client_data["id"] = client_id
+#     metrics.log_connection(client_id, connected=True)
+#     logger.info(f"Client connected: {client_id}")
+
+
+# @mcp.on_disconnect 装饰器在当前版本的 FastMCP 中不可用
+# async def handle_disconnect(ctx: Context):
+#     """Track client disconnections."""
+#     client_id = ctx.client_data.get("id", "unknown")
+#     metrics.log_connection(client_id, connected=False)
+#     logger.info(f"Client disconnected: {client_id}")
+
+# 改为在初始化函数中添加日志
+def log_connection_attempt():
+    """Log connection attempt without using on_connect."""
     client_id = str(uuid.uuid4())
-    ctx.client_data["id"] = client_id
     metrics.log_connection(client_id, connected=True)
-    logger.info(f"Client connected: {client_id}")
-
-
-@mcp.on_disconnect
-async def handle_disconnect(ctx: Context):
-    """Track client disconnections."""
-    client_id = ctx.client_data.get("id", "unknown")
-    metrics.log_connection(client_id, connected=False)
-    logger.info(f"Client disconnected: {client_id}")
+    logger.info(f"Client connection simulation: {client_id}")
+    return client_id
 
 
 @mcp.tool(name="GetConfiguration", description="Get Claude Desktop configuration for this MCP server")
@@ -357,6 +365,10 @@ def initialize_server():
     
     # Register resources
     register_view_resources()
+    
+    # Log initial connection for metrics
+    log_connection_attempt()
+    logger.info("Server initialized and ready for connections")
     
     # Add metrics tool for server monitoring
     @mcp.tool(name="ResetServerMetrics", description="Reset server metrics tracking")

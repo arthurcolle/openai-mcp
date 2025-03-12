@@ -160,6 +160,7 @@ class Conversation:
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = os.getenv("OPENAI_MODEL", DEFAULT_MODEL)
         self.temperature = float(os.getenv("OPENAI_TEMPERATURE", DEFAULT_TEMPERATURE))
+        self.reasoning_effort = None  # Default to None, will be set if o1 models are used
         self.tools = self._register_tools()
         self.tool_map = {tool.name: tool.function for tool in self.tools}
         self.conversation_id = str(uuid4())
@@ -971,11 +972,17 @@ class Conversation:
         
         # Get compaction summary
         # TODO: Add error handling for compaction API call
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=self.messages,
-            stream=False
-        )
+        params = {
+            "model": self.model,
+            "messages": self.messages,
+            "stream": False
+        }
+        
+        # Add reasoning_effort for o1 models if set
+        if self.reasoning_effort and self.model.startswith("o1"):
+            params["reasoning_effort"] = self.reasoning_effort
+        
+        response = self.client.chat.completions.create(**params)
         
         summary = response.choices[0].message.content
         
@@ -1183,13 +1190,20 @@ class Conversation:
                 retry_count = 0
                 while retry_count < max_retries:
                     try:
-                        stream = self.client.chat.completions.create(
-                            model=self.model,
-                            messages=self.messages,
-                            tools=api_tools,
-                            temperature=self.temperature,
-                            stream=True
-                        )
+                        # Prepare API parameters
+                        params = {
+                            "model": self.model,
+                            "messages": self.messages,
+                            "tools": api_tools,
+                            "temperature": self.temperature,
+                            "stream": True
+                        }
+                        
+                        # Add reasoning_effort for o1 models if set
+                        if self.reasoning_effort and self.model.startswith("o1"):
+                            params["reasoning_effort"] = self.reasoning_effort
+                        
+                        stream = self.client.chat.completions.create(**params)
                         break  # Success, exit retry loop
                     except Exception as e:
                         retry_count += 1
@@ -1293,12 +1307,18 @@ class Conversation:
                     
                     while retry_count < max_retries:
                         try:
-                            follow_up = self.client.chat.completions.create(
-                                model=self.model,
-                                messages=self.messages,
-                                tools=api_tools,  # Pass tools to enable recursive function calling
-                                stream=False
-                            )
+                            params = {
+                                "model": self.model,
+                                "messages": self.messages,
+                                "tools": api_tools,  # Pass tools to enable recursive function calling
+                                "stream": False
+                            }
+                            
+                            # Add reasoning_effort for o1 models if set
+                            if self.reasoning_effort and self.model.startswith("o1"):
+                                params["reasoning_effort"] = self.reasoning_effort
+                            
+                            follow_up = self.client.chat.completions.create(**params)
                             break  # Success, exit retry loop
                         except Exception as e:
                             retry_count += 1
@@ -1373,13 +1393,19 @@ class Conversation:
             return response_text
         else:
             # Non-streaming response
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=self.messages,
-                tools=api_tools,
-                temperature=self.temperature,
-                stream=False
-            )
+            params = {
+                "model": self.model,
+                "messages": self.messages,
+                "tools": api_tools,
+                "temperature": self.temperature,
+                "stream": False
+            }
+            
+            # Add reasoning_effort for o1 models if set
+            if self.reasoning_effort and self.model.startswith("o1"):
+                params["reasoning_effort"] = self.reasoning_effort
+            
+            response = self.client.chat.completions.create(**params)
             
             # Track token usage
             if hasattr(response, 'usage'):
@@ -1435,12 +1461,18 @@ class Conversation:
                     
                     while retry_count < max_retries:
                         try:
-                            follow_up = self.client.chat.completions.create(
-                                model=self.model,
-                                messages=self.messages,
-                                tools=api_tools,  # Pass tools to enable recursive function calling
-                                stream=False
-                            )
+                            params = {
+                                "model": self.model,
+                                "messages": self.messages,
+                                "tools": api_tools,  # Pass tools to enable recursive function calling
+                                "stream": False
+                            }
+                            
+                            # Add reasoning_effort for o1 models if set
+                            if self.reasoning_effort and self.model.startswith("o1"):
+                                params["reasoning_effort"] = self.reasoning_effort
+                            
+                            follow_up = self.client.chat.completions.create(**params)
                             break  # Success, exit retry loop
                         except Exception as e:
                             retry_count += 1
@@ -1599,13 +1631,14 @@ class HostingManager:
             request: Request,
             background_tasks: BackgroundTasks,
             model: str = DEFAULT_MODEL,
-            temperature: float = DEFAULT_TEMPERATURE
+            temperature: float = DEFAULT_TEMPERATURE,
+            reasoning_effort: Optional[str] = None
         ):
             """Create a new conversation instance"""
             conversation_id = str(uuid4())
             
             # Initialize conversation in background
-            background_tasks.add_task(self._init_conversation, conversation_id, model, temperature)
+            background_tasks.add_task(self._init_conversation, conversation_id, model, temperature, reasoning_effort)
             
             return {
                 "conversation_id": conversation_id,
@@ -1872,11 +1905,16 @@ class HostingManager:
                 "uptime": time.time() - self.start_time
             }
     
-    async def _init_conversation(self, conversation_id, model, temperature):
+    async def _init_conversation(self, conversation_id, model, temperature, reasoning_effort=None):
         """Initialize a conversation instance"""
         conversation = Conversation()
         conversation.model = model
         conversation.temperature = temperature
+        
+        # Set reasoning_effort for o1 models if provided
+        if reasoning_effort and model.startswith("o1"):
+            conversation.reasoning_effort = reasoning_effort
+            
         conversation.messages.append({"role": "system", "content": get_system_prompt()})
         
         self.conversation_pool[conversation_id] = conversation

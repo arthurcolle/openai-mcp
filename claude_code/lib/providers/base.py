@@ -52,7 +52,9 @@ class BaseProvider(abc.ABC):
                            messages: List[Dict[str, Any]], 
                            tools: Optional[List[Dict[str, Any]]] = None,
                            temperature: float = 0.0,
-                           stream: bool = True) -> Union[Dict[str, Any], Generator[Dict[str, Any], None, None]]:
+                           stream: bool = True,
+                           reasoning_effort: Optional[float] = None,
+                           web_search: bool = False) -> Union[Dict[str, Any], Generator[Dict[str, Any], None, None]]:
         """Generate a completion from the provider.
         
         Args:
@@ -60,6 +62,8 @@ class BaseProvider(abc.ABC):
             tools: Optional list of tool dictionaries
             temperature: Model temperature (0-1)
             stream: Whether to stream the response
+            reasoning_effort: Optional float (0-1) for controlling reasoning depth in supported models
+            web_search: Whether to enable web search capability for models that support it
             
         Returns:
             If stream=True, returns a generator of response chunks

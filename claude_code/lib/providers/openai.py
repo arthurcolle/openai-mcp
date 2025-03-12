@@ -41,9 +41,27 @@ MODEL_INFO = {
         "output_cost_per_1k": 0.06,
         "capabilities": ["function_calling", "json_mode"],
     },
+    "o1": {
+        "context_window": 128000,
+        "input_cost_per_1k": 0.015,
+        "output_cost_per_1k": 0.060,
+        "capabilities": ["function_calling", "json_mode", "vision", "reasoning", "web_search"],
+    },
+    "o1-preview": {
+        "context_window": 128000,
+        "input_cost_per_1k": 0.015,
+        "output_cost_per_1k": 0.060,
+        "capabilities": ["vision", "reasoning", "streaming", "web_search"],
+    },
+    "o1-mini": {
+        "context_window": 128000,
+        "input_cost_per_1k": 0.0011,
+        "output_cost_per_1k": 0.0044,
+        "capabilities": ["vision", "reasoning", "streaming", "web_search"],
+    },
 }
 
-DEFAULT_MODEL = "gpt-4o"
+DEFAULT_MODEL = "o1"
 
 
 class OpenAIProvider(BaseProvider):
@@ -91,7 +109,9 @@ class OpenAIProvider(BaseProvider):
                            messages: List[Dict[str, Any]], 
                            tools: Optional[List[Dict[str, Any]]] = None,
                            temperature: float = 0.0,
-                           stream: bool = True) -> Union[Dict[str, Any], Generator[Dict[str, Any], None, None]]:
+                           stream: bool = True,
+                           reasoning_effort: Optional[float] = None,
+                           web_search: bool = False) -> Union[Dict[str, Any], Generator[Dict[str, Any], None, None]]:
         """Generate a completion from OpenAI.
         
         Args:
@@ -99,15 +119,28 @@ class OpenAIProvider(BaseProvider):
             tools: Optional list of tool dictionaries
             temperature: Model temperature (0-1)
             stream: Whether to stream the response
+            reasoning_effort: Optional float (0-1) for controlling reasoning depth in o1 models
+            web_search: Whether to enable web search capability for models that support it
             
         Returns:
             If stream=True, returns a generator of response chunks
             If stream=False, returns the complete response
         """
         try:
-            # Convert tools to OpenAI format if provided
-            api_tools = None
-            if tools:
+            # Prepare additional parameters for API call
+            kwargs = {
+                "model": self._model,
+                "messages": messages,
+                "temperature": temperature,
+                "stream": stream
+            }
+            
+            # Check model capabilities
+            model_info = MODEL_INFO.get(self._model, {})
+            model_capabilities = model_info.get("capabilities", [])
+            
+            # Only add tools if the model supports function_calling
+            if tools and "function_calling" in model_capabilities:
                 api_tools = []
                 for tool in tools:
                     api_tools.append({
@@ -118,15 +151,29 @@ class OpenAIProvider(BaseProvider):
                             "parameters": tool["parameters"]
                         }
                     })
+                kwargs["tools"] = api_tools
+            elif tools:
+                logger.warning(f"Function calling not supported for model {self._model}. Ignoring tools parameter.")
+            
+            # Add reasoning_effort for o1 models if provided
+            if reasoning_effort is not None and self._model.startswith("o1"):
+                kwargs["reasoning_effort"] = reasoning_effort
+            
+            # Enable web search if requested and supported
+            if web_search and "web_search" in model_capabilities:
+                kwargs["web_search"] = True
+                logger.info(f"Enabling web search for model {self._model}")
+            elif web_search:
+                logger.warning(f"Web search not supported for model {self._model}. Ignoring web_search parameter.")
+                
+            # Check streaming compatibility
+            if stream and "streaming" not in model_capabilities and self._model.startswith("o1"):
+                logger.warning(f"Model {self._model} does not support streaming. Disabling stream.")
+                kwargs["stream"] = False
+                stream = False
             
             # Make the API call
-            response = self._client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                tools=api_tools,
-                temperature=temperature,
-                stream=stream
-            )
+            response = self._client.chat.completions.create(**kwargs)
             
             # Handle streaming and non-streaming responses
             if stream:
