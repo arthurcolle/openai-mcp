@@ -1,4 +1,4 @@
-# Claude Code Python Edition
+# MCP Coding Assistant with support for OpenAI + other LLM Providers
 
 A powerful Python recreation of Claude Code with enhanced real-time visualization, cost management, and Model Context Protocol (MCP) server capabilities. This tool provides a natural language interface for software development tasks with support for multiple LLM providers.
 
