@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/arthurcolle-openai-mcp-badge.png)](https://mseep.ai/app/arthurcolle-openai-mcp)
+
 # MCP Coding Assistant with support for OpenAI + other LLM Providers
 
 A powerful Python recreation of Claude Code with enhanced real-time visualization, cost management, and Model Context Protocol (MCP) server capabilities. This tool provides a natural language interface for software development tasks with support for multiple LLM providers.
